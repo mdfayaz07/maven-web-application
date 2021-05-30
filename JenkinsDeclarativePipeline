@@ -1,0 +1,80 @@
+pipeline{
+
+agent any
+
+tools
+{
+  maven 'maven3.8.1'
+
+}
+
+triggers{
+ pollSCM('* * * * *')
+}
+
+options{
+    timestamps()
+    buildDiscarder(logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '2', daysToKeepStr: '', numToKeepStr: '2'))
+}
+
+ stages{
+   
+   stage('CheckoutCode')
+   {
+     steps{
+	 git branch: 'development', credentialsId: '3031412d-496c-4fcb-8641-ca6ade7a50cf', url: 'https://github.com/mdfayaz07/maven-web-application.git'
+	 
+	 }
+   }
+   
+   stage('Build')
+   {
+    steps{
+	  sh "mvn clean package"
+	 }
+   }
+   
+    stage('ExecuteSonarQubeReport')
+   {
+     steps{
+	  sh "mvn sonar:sonar"
+	 }
+   }
+   
+   stage('UploadArtifactintoNexus')
+   {
+     steps{
+	  sh "mvn deploy"
+	 }
+   }
+   
+  stage('DeployAppIntoTomcat')
+ {
+   steps{
+   sshagent(['40003f7d-3de9-4137-9ec4-b7f08dd162cb']) {
+  sh "scp -o StrictHostKeyChecking=no target/maven-web-application.war ec2-user@18.215.164.247:/opt/apache-tomcat-9.0.45/webapps"
+  }
+ }
+ }
+ 
+ }
+ 
+ post{
+ success{
+ emailext body: '''Build Over
+
+Regards,
+Fayaz
+''', replyTo: 'mfayaz687@gmail.com', subject: 'Build Over', to: 'md.fayaz07@gmail.com'
+ }
+ 
+ failure{
+ emailext body: '''Build Over
+
+Regards,
+Fayaz
+''', replyTo: 'mfayaz687@gmail.com', subject: 'Build Over', to: 'md.fayaz07@gmail.com'
+ }
+ 
+ }
+}
